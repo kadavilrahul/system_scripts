@@ -4,17 +4,17 @@ An automated disk space cleanup script for Linux systems that safely removes unn
 
 ## Installation
 
-# Clone the repository
+### Clone the repository
 ```bash
 git clone https://github.com/kadavilrahul/system_cleanup.git
 ```
 
-# Navigate to directory
+### Navigate to directory
 ```bash
 cd system_cleanup
 ```
 
-# Make script executable
+### Make script executable
 ```bash
 bash run.sh
 ```
