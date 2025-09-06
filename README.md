@@ -1,17 +1,17 @@
-# System Cleanup Script
+# System Scripts
 
-An automated disk space cleanup script for Linux systems that safely removes unnecessary files and logs while providing detailed reporting.
+An interactive menu-driven system cleanup suite for Linux systems with automated backup extraction, intelligent cache management, and comprehensive disk space cleanup with detailed reporting.
 
 ## Installation
 
 ### Clone the repository
 ```bash
-git clone https://github.com/kadavilrahul/system_cleanup.git
+git clone https://github.com/kadavilrahul/system_scripts.git
 ```
 
 ### Navigate to directory
 ```bash
-cd system_cleanup
+cd system_scripts
 ```
 
 ### Make script executable
@@ -21,68 +21,150 @@ bash run.sh
 
 ## Features
 
-- **Comprehensive Cleanup**: Removes package cache, old logs, temporary files, and more
-- **Safe Operations**: Built-in safety checks and error handling
-- **Detailed Reporting**: Shows before/after disk usage with `df -h` output
+- **Interactive Menu System**: 14 numbered cleanup options with clear descriptions
+- **Website Backup Extraction**: Automatically unzips all backup files from `/website_backups`
+- **Pre-Cleanup Analysis**: Shows folder sizes and file counts before each operation
+- **Cache Lock Handling**: Intelligent detection and clearing of APT/package manager locks
+- **Safe Operations**: User confirmation required for all destructive operations
+- **Detailed Reporting**: Shows before/after disk usage with precise space calculations
 - **Service-Aware**: Handles Apache, MySQL, Redis, and other services intelligently
-- **Precise Tracking**: Reports exact space freed in MB/GB
-- **Logging**: All operations logged to `/var/log/system-cleanup.log`
+- **Real-time Feedback**: Progress indicators and success/failure reporting
+- **Comprehensive Logging**: All operations logged to `/var/log/system-cleanup.log`
 
-## What Gets Cleaned
+## Menu Options
 
-### Package Management
+### 1. Unzip Website Backups
+- Extracts all backup files from `/website_backups` directory
+- Supports `.tar.gz`, `.tar.bz2`, `.tar`, and `.zip` formats
+- Shows file counts and sizes before extraction
+- Extracts directly to `/website_backups` with organized structure
+
+### 2. Package Cache Cleanup
+- Shows current APT cache and lists sizes
+- Displays packages to be auto-removed
 - Removes unused packages (`apt autoremove`)
 - Cleans package cache (`apt autoclean`)
-- Removes disabled snap packages
+- Handles package manager locks automatically
 
-### Log Files
-- Truncates large Apache logs (>10MB)
-- Cleans system logs older than 7 days
+### 3. Log Files Cleanup
+- Shows system log directory sizes
+- Displays systemd journal size
+- Lists largest log files before cleanup
+- Removes logs older than 7 days
 - Purges journal logs older than 7 days
-- Removes old MySQL binary logs
-- Cleans Redis dump files
 
-### Cache & Temporary Files
-- User cache directories (`~/.cache`)
-- Temporary files in `/tmp` and `/var/tmp`
-- Old VS Code server logs and PID files
+### 4. Apache Logs Cleanup
+- Shows Apache log directory size
+- Lists large log files (>10MB)
+- Truncates large current logs
+- Removes old compressed logs
+- Reloads Apache service
 
-### Archive Files
-- Removes Google Cloud CLI archive if CLI is already installed
-- Other large archive files as configured
+### 5. MySQL Cleanup
+- Shows MySQL data directory size
+- Displays binary log information
+- Purges binary logs older than 7 days
+- Flushes current logs
+- Shows largest database tables
 
+### 6. Redis Cleanup
+- Shows Redis data directory size
+- Lists old dump files to be removed
+- Removes dump files older than 7 days
+- Reports cleanup statistics
 
+### 7. User Cache Cleanup
+- Shows root user cache size
+- Lists all home directory caches
+- Cleans root and user cache directories
+- Reports space freed per user
+
+### 8. Temporary Files Cleanup
+- Shows `/tmp` and `/var/tmp` sizes
+- Counts files to be cleaned by age
+- Removes `/tmp` files older than 7 days
+- Removes `/var/tmp` files older than 30 days
+
+### 9. Snap Cache Cleanup
+- Shows snap packages directory size
+- Lists disabled snap revisions
+- Removes disabled snap packages
+- Reports space freed
+
+### 10. VS Code Server Cleanup
+- Shows VS Code server directory size
+- Lists files to be cleaned
+- Removes old log files (>30 days)
+- Removes PID files
+
+### 11-14. System Information
+- **Disk Usage**: Current disk space usage
+- **Largest Directories**: Top space consumers
+- **Cleanup Logs**: Recent cleanup log entries
+- **System Status**: Service status and system health
+
+## Usage
+
+```bash
 # Run with sudo for system-wide cleanup
 sudo ./run.sh
 ```
 
 ## Output Example
 
+### Interactive Menu
 ```
-[2025-08-19 10:15:59] Starting system cleanup...
-[2025-08-19 10:15:59] Running: df -h /
-[2025-08-19 10:15:59] Filesystem      Size  Used Avail Use% Mounted on
-/dev/sda1       150G   87G   58G  61% /
+========================================
+        SYSTEM CLEANUP MENU
+========================================
+1)  Unzip Website Backups      - Extract all backup files from /website_backups
+2)  Package Cache Cleanup      - Clean apt cache and remove unused packages
+3)  Log Files Cleanup          - Clean and rotate system log files
+4)  Apache Logs Cleanup        - Clean and truncate Apache log files
+5)  MySQL Cleanup              - Clean MySQL binary logs and optimize
+6)  Redis Cleanup              - Clean old Redis dump files
+7)  User Cache Cleanup         - Clean user cache directories
+8)  Temporary Files Cleanup    - Clean /tmp and /var/tmp directories
+9)  Snap Cache Cleanup         - Remove disabled snap packages
+10) VS Code Server Cleanup     - Clean old VS Code server files
+11) Show Disk Usage            - Display current disk space usage
+12) Show Largest Directories   - Display largest space consumers
+13) View Cleanup Logs          - Display recent cleanup log entries
+14) System Status              - Show system services status
+0)  Exit
+========================================
+Please select an option (0-14): 
+```
 
-[2025-08-19 10:15:59] Cleaning package cache...
-[2025-08-19 10:15:59] Cleaning user cache directories...
-[2025-08-19 10:15:59] Rotating Apache logs...
-...
+### Cleanup Process Example
+```
+🧹 PACKAGE CACHE CLEANUP
+========================================
+✅ APT locks cleared.
+📁 APT Cache:
+   Size: 1.2G
+   Files: 2847
 
-=========================================
-CLEANUP SUMMARY:
+📁 APT Lists:
+   Size: 156M
+   Files: 1432
 
-BEFORE CLEANUP:
-Filesystem      Size  Used Avail Use% Mounted on
-/dev/sda1       150G   87G   58G  61% /
+📦 Packages that will be auto-removed:
+   linux-image-5.15.0-56-generic
+   linux-headers-5.15.0-56
+   ...
 
-AFTER CLEANUP:
-Filesystem      Size  Used Avail Use% Mounted on
-/dev/sda1       150G   85G   60G  58% /
+This will clean package cache and remove unused packages. Continue? (y/N): y
 
-✓ Total space cleaned: 2GB (2048MB)
-✓ Disk usage: 61% → 58%
-=========================================
+🔄 Cleaning package cache...
+Reading package lists...
+Removing linux-image-5.15.0-56-generic...
+   ✅ Package cleanup completed!
+
+📊 CLEANUP SUMMARY for Package Cache:
+   Before: 1.2G
+   After:  845M
+   Freed:  374M
 ```
 
 ## Requirements
@@ -94,36 +176,54 @@ Filesystem      Size  Used Avail Use% Mounted on
 
 ## Safety Features
 
+- **User Confirmation**: Every destructive operation requires explicit confirmation
+- **Pre-Operation Analysis**: Shows exactly what will be cleaned before proceeding
+- **Lock Detection**: Automatically detects and handles package manager locks
+- **Service Checks**: Verifies services are running before cleanup
 - **Non-destructive**: Only removes logs, cache, and temporary files
-- **Service checks**: Verifies services are running before cleanup
 - **Error handling**: Continues on errors, doesn't halt execution
-- **Logging**: All operations logged for audit trail
-- **Conservative defaults**: Keeps recent files, removes only old data
+- **Comprehensive Logging**: All operations logged with timestamps for audit trail
+- **Conservative Defaults**: Keeps recent files, removes only old data
+
+## Scripts Included
+
+### run.sh
+Main interactive menu script with 14 cleanup options and system information tools.
+
+### unzip_backups.sh  
+Dedicated script for extracting website backups with support for multiple archive formats.
 
 ## Configuration
 
 ### Customizable Timeouts
-- Logs: 7 days (modify `-mtime +7`)
-- MySQL logs: 7 days (modify `INTERVAL 7 DAY`)
-- Temporary files: 7-30 days
+- System logs: 7 days (modify `-mtime +7`)
+- MySQL binary logs: 7 days (modify `INTERVAL 7 DAY`)
+- Temporary files: 7 days for `/tmp`, 30 days for `/var/tmp`
 - Apache log size threshold: 10MB (modify `-size +10M`)
+- VS Code logs: 30 days (modify `-mtime +30`)
+- Redis dumps: 7 days (modify `-mtime +7`)
 
-### Optional Cleanup
-Development packages cleanup is commented out for safety:
-```bash
-# Uncomment to remove unused dev packages
-# apt autoremove --purge $(dpkg-query -Wf '${Package}\n' | grep -E "(dev|debug|doc)$") -y
-```
+### Cache Lock Handling
+The script automatically:
+- Detects running APT/dpkg processes
+- Waits for processes to complete
+- Removes stale lock files if needed
+- Attempts to fix broken packages
+- Restarts MySQL if locks are detected
 
 ## Automation
 
-Add to crontab for automatic cleanup:
-```bash
-# Weekly cleanup every Sunday at 2 AM
-0 2 * * 0 /root/system_cleanup/run.sh
+The interactive menu is designed for manual use, but individual cleanup functions can be automated by calling them directly:
 
-# Monthly cleanup on 1st of month
-0 2 1 * * /root/system_cleanup/run.sh
+```bash
+# Example: Automate specific cleanup operations
+/system_cleanup/unzip_backups.sh  # Extract backups automatically
+
+# Create custom automation script
+#!/bin/bash
+source /system_cleanup/run.sh
+package_cleanup  # Run specific cleanup function
+logs_cleanup
 ```
 
 ## Log File
