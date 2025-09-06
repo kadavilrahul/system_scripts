@@ -105,23 +105,21 @@ show_cleanup_summary() {
 show_menu() {
     clear
     echo "                             MENU"
+    echo "========================================================================================"
     echo "1)  Unzip Website Backups      - Extract all backup files from /website_backups"
-    echo "2)  Package Cache Cleanup      - Clean apt cache and remove unused packages"
-    echo "3)  Log Files Cleanup          - Clean and rotate system log files"
-    echo "4)  Apache Logs Cleanup        - Clean and truncate Apache log files"
-    echo "5)  MySQL Cleanup              - Clean MySQL binary logs and optimize"
-    echo "6)  Redis Cleanup              - Clean old Redis dump files"
-    echo "7)  User Cache Cleanup         - Clean user cache directories"
-    echo "8)  Temporary Files Cleanup    - Clean /tmp and /var/tmp directories"
-    echo "9)  Snap Cache Cleanup         - Remove disabled snap packages"
-    echo "10) VS Code Server Cleanup     - Clean old VS Code server files"
-    echo "11) Show Disk Usage            - Display current disk space usage"
-    echo "12) Show Largest Directories   - Display largest space consumers"
-    echo "13) View Cleanup Logs          - Display recent cleanup log entries"
-    echo "14) System Status              - Show system services status"
+    echo "2)  System Monitor             - Display disk usage, directories, logs and status"
+    echo "3)  Package Cache Cleanup      - Clean apt cache and remove unused packages"
+    echo "4)  Log Files Cleanup          - Clean and rotate system log files"
+    echo "5)  Apache Logs Cleanup        - Clean and truncate Apache log files"
+    echo "6)  MySQL Cleanup              - Clean MySQL binary logs and optimize"
+    echo "7)  Redis Cleanup              - Clean old Redis dump files"
+    echo "8)  User Cache Cleanup         - Clean user cache directories"
+    echo "9)  Temporary Files Cleanup    - Clean /tmp and /var/tmp directories"
+    echo "10) Snap Cache Cleanup         - Remove disabled snap packages"
+    echo "11) VS Code Server Cleanup     - Clean old VS Code server files"
     echo "0)  Exit"
-    echo "========================================"
-    echo -n "Please select an option (0-14): "
+    echo "========================================================================================"
+    echo -n "Please select an option (0-11): "
 }
 
 
@@ -567,36 +565,29 @@ unzip_backups() {
     read -p "Press Enter to continue..."
 }
 
-show_disk_usage() {
-    echo "Current disk usage:"
+system_monitor() {
+    echo "🖥️  SYSTEM MONITOR"
+    echo "========================================"
+    
+    # Disk Usage
+    echo "📊 DISK USAGE:"
     df -h
     echo ""
     echo "Disk usage by filesystem:"
     df -h --type=ext4 --type=xfs --type=btrfs 2>/dev/null || df -h
-    read -p "Press Enter to continue..."
-}
-
-show_largest_dirs() {
-    echo "Largest directories (this may take a moment)..."
-    echo "Top 15 largest directories in /root:"
-    du -sh /root/* 2>/dev/null | sort -hr | head -15
     echo ""
-    echo "Top 15 largest directories in /var:"
-    du -sh /var/* 2>/dev/null | sort -hr | head -15
-    read -p "Press Enter to continue..."
-}
-
-view_cleanup_logs() {
-    echo "Recent cleanup log entries:"
-    echo "========================================"
-    tail -50 "$LOG_FILE" 2>/dev/null || echo "No cleanup logs found."
-    echo "========================================"
-    read -p "Press Enter to continue..."
-}
-
-show_system_status() {
-    echo "System Services Status:"
-    echo "========================================"
+    
+    # Largest Directories
+    echo "📁 LARGEST DIRECTORIES (>1GB):"
+    echo "Directories in /root above 1GB:"
+    du -sh /root/* 2>/dev/null | awk '$1 ~ /[0-9]+(\.[0-9]+)?G/ && $1 !~ /^0\.[0-9]G/' | sort -hr
+    echo ""
+    echo "Directories in /var above 1GB:"
+    du -sh /var/* 2>/dev/null | awk '$1 ~ /[0-9]+(\.[0-9]+)?G/ && $1 !~ /^0\.[0-9]G/' | sort -hr
+    echo ""
+    
+    # System Status
+    echo "⚙️  SYSTEM SERVICES STATUS:"
     echo "Apache2: $(systemctl is-active apache2 2>/dev/null || echo 'not installed')"
     echo "MySQL:   $(systemctl is-active mysql 2>/dev/null || echo 'not installed')"
     echo "Redis:   $(systemctl is-active redis 2>/dev/null || echo 'not installed')"
@@ -608,9 +599,13 @@ show_system_status() {
     echo "Memory Usage:"
     free -h
     echo ""
-    echo "Disk Usage Summary:"
-    df -h / | tail -1
+    
+    # Cleanup Logs
+    echo "📄 RECENT CLEANUP LOGS:"
     echo "========================================"
+    tail -20 "$LOG_FILE" 2>/dev/null || echo "No cleanup logs found."
+    echo "========================================"
+    
     read -p "Press Enter to continue..."
 }
 
@@ -624,50 +619,41 @@ while true; do
             unzip_backups
             ;;
         2)
-            package_cleanup
+            system_monitor
             ;;
         3)
-            logs_cleanup
+            package_cleanup
             ;;
         4)
-            apache_cleanup
+            logs_cleanup
             ;;
         5)
-            mysql_cleanup
+            apache_cleanup
             ;;
         6)
-            redis_cleanup
+            mysql_cleanup
             ;;
         7)
-            user_cache_cleanup
+            redis_cleanup
             ;;
         8)
-            temp_files_cleanup
+            user_cache_cleanup
             ;;
         9)
-            snap_cleanup
+            temp_files_cleanup
             ;;
         10)
-            vscode_cleanup
+            snap_cleanup
             ;;
         11)
-            show_disk_usage
-            ;;
-        12)
-            show_largest_dirs
-            ;;
-        13)
-            view_cleanup_logs
-            ;;
-        14)
-            show_system_status
+            vscode_cleanup
             ;;
         0)
             echo "Exiting system cleanup menu."
             exit 0
             ;;
         *)
-            echo "Invalid option. Please select 0-14."
+            echo "Invalid option. Please select 0-11."
             read -p "Press Enter to continue..."
             ;;
     esac
