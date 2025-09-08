@@ -1,10 +1,8 @@
 #!/bin/bash
 
 # Website Backup Unzip Script
-# Unzips all backup files from /website_backups directory
+# Unzips backup files with interactive options
 
-BACKUP_DIR="/website_backups"
-EXTRACT_DIR="/website_backups"
 LOG_FILE="/var/log/backup-unzip.log"
 DATE=$(date '+%Y-%m-%d %H:%M:%S')
 
@@ -21,121 +19,265 @@ confirm_action() {
     esac
 }
 
-log "Starting website backup unzip process..."
+get_folder_path() {
+    echo ""
+    echo "Select backup folder path:"
+    echo -n "Enter folder path [default: /website_backups]: "
+    read -r folder_path
+    if [ -z "$folder_path" ]; then
+        folder_path="/website_backups"
+    fi
+    echo "$folder_path"
+}
 
-if [ ! -d "$BACKUP_DIR" ]; then
-    log "ERROR: Backup directory $BACKUP_DIR does not exist!"
-    exit 1
-fi
+show_menu() {
+    echo ""
+    echo "=== Website Backup Unzip Tool ==="
+    echo "1) Unzip individual file"
+    echo "2) Unzip all files"
+    echo "3) Delete unzipped folders"
+    echo "4) Exit"
+    echo -n "Select option [1-4]: "
+}
 
-cd "$BACKUP_DIR" || exit 1
-
-BACKUP_FILES=$(find . -maxdepth 1 -name "*.tar.gz" -o -name "*.zip" -o -name "*.tar" -o -name "*.tar.bz2" | wc -l)
-
-if [ "$BACKUP_FILES" -eq 0 ]; then
-    log "No backup files found in $BACKUP_DIR"
-    echo "No backup files found in $BACKUP_DIR"
-    exit 0
-fi
-
-echo "Found $BACKUP_FILES backup file(s) to extract:"
-find . -maxdepth 1 -name "*.tar.gz" -o -name "*.zip" -o -name "*.tar" -o -name "*.tar.bz2" | while read -r file; do
-    echo "  - $file"
-done
-
-if ! confirm_action "Do you want to proceed with extracting all backup files?"; then
-    log "Operation cancelled by user"
-    echo "Operation cancelled."
-    exit 0
-fi
-
-SUCCESS_COUNT=0
-ERROR_COUNT=0
-
-# Use a different approach to avoid subshell variable issues
-TEMP_FILE="/tmp/backup_results_$$"
-echo "0 0" > "$TEMP_FILE"
-
-find . -maxdepth 1 \( -name "*.tar.gz" -o -name "*.zip" -o -name "*.tar" -o -name "*.tar.bz2" \) | while read -r file; do
-    BASENAME=$(basename "$file")
-    FILENAME="${BASENAME%.*}"
-    if [[ "$BASENAME" == *.tar.gz ]]; then
-        FILENAME="${FILENAME%.*}"
+delete_unzipped_folders() {
+    local backup_dir="$1"
+    echo ""
+    echo "Looking for unzipped folders in: $backup_dir"
+    
+    local folders_found=0
+    for item in "$backup_dir"/*; do
+        if [ -d "$item" ] && [ "$(basename "$item")" != "$(basename "$backup_dir")" ]; then
+            folders_found=1
+            break
+        fi
+    done
+    
+    if [ $folders_found -eq 0 ]; then
+        echo "No unzipped folders found."
+        return 0
     fi
     
-    log "Processing: $file"
-    echo "Extracting: $BASENAME"
+    echo "Found unzipped folders:"
+    for item in "$backup_dir"/*; do
+        if [ -d "$item" ] && [ "$(basename "$item")" != "$(basename "$backup_dir")" ]; then
+            echo "  - $(basename "$item")"
+        fi
+    done
+    
+    if confirm_action "Do you want to delete all unzipped folders?"; then
+        local deleted_count=0
+        for item in "$backup_dir"/*; do
+            if [ -d "$item" ] && [ "$(basename "$item")" != "$(basename "$backup_dir")" ]; then
+                if rm -rf "$item"; then
+                    echo "  ✓ Deleted: $(basename "$item")"
+                    log "Deleted folder: $item"
+                    ((deleted_count++))
+                else
+                    echo "  ✗ Failed to delete: $(basename "$item")"
+                    log "ERROR: Failed to delete folder: $item"
+                fi
+            fi
+        done
+        echo "Deleted $deleted_count folder(s)."
+    else
+        echo "Deletion cancelled."
+    fi
+}
+
+BACKUP_DIR=$(get_folder_path)
+log "Starting website backup unzip process in: $BACKUP_DIR"
+
+extract_file() {
+    local file="$1"
+    local backup_dir="$2"
+    local basename_file=$(basename "$file")
+    local filename="${basename_file%.*}"
+    
+    if [[ "$basename_file" == *.tar.gz ]]; then
+        filename="${filename%.*}"
+    elif [[ "$basename_file" == *.tar.bz2 ]]; then
+        filename="${filename%.*}"
+    fi
+    
+    local extract_dir="$backup_dir/$filename"
+    
+    if [ -d "$extract_dir" ]; then
+        if ! confirm_action "Folder '$filename' already exists. Overwrite?"; then
+            echo "Skipping $basename_file"
+            return 1
+        fi
+        rm -rf "$extract_dir"
+    fi
+    
+    mkdir -p "$extract_dir"
+    
+    log "Processing: $file -> $extract_dir"
+    echo "Extracting: $basename_file -> $filename/"
     
     case "$file" in
         *.tar.gz)
-            if tar -xzf "$file" -C "$EXTRACT_DIR" 2>> "$LOG_FILE"; then
-                log "SUCCESS: Extracted $file to $EXTRACT_DIR"
-                echo "  ✓ Successfully extracted to: $EXTRACT_DIR"
-                read success error < "$TEMP_FILE"
-                echo "$((success + 1)) $error" > "$TEMP_FILE"
+            if tar -xzf "$file" -C "$extract_dir" 2>> "$LOG_FILE"; then
+                log "SUCCESS: Extracted $file to $extract_dir"
+                echo "  ✓ Successfully extracted to: $extract_dir"
+                return 0
             else
                 log "ERROR: Failed to extract $file"
                 echo "  ✗ Failed to extract $file"
-                read success error < "$TEMP_FILE"
-                echo "$success $((error + 1))" > "$TEMP_FILE"
+                rm -rf "$extract_dir"
+                return 1
             fi
             ;;
         *.tar.bz2)
-            if tar -xjf "$file" -C "$EXTRACT_DIR" 2>> "$LOG_FILE"; then
-                log "SUCCESS: Extracted $file to $EXTRACT_DIR"
-                echo "  ✓ Successfully extracted to: $EXTRACT_DIR"
-                read success error < "$TEMP_FILE"
-                echo "$((success + 1)) $error" > "$TEMP_FILE"
+            if tar -xjf "$file" -C "$extract_dir" 2>> "$LOG_FILE"; then
+                log "SUCCESS: Extracted $file to $extract_dir"
+                echo "  ✓ Successfully extracted to: $extract_dir"
+                return 0
             else
                 log "ERROR: Failed to extract $file"
                 echo "  ✗ Failed to extract $file"
-                read success error < "$TEMP_FILE"
-                echo "$success $((error + 1))" > "$TEMP_FILE"
+                rm -rf "$extract_dir"
+                return 1
             fi
             ;;
         *.tar)
-            if tar -xf "$file" -C "$EXTRACT_DIR" 2>> "$LOG_FILE"; then
-                log "SUCCESS: Extracted $file to $EXTRACT_DIR"
-                echo "  ✓ Successfully extracted to: $EXTRACT_DIR"
-                read success error < "$TEMP_FILE"
-                echo "$((success + 1)) $error" > "$TEMP_FILE"
+            if tar -xf "$file" -C "$extract_dir" 2>> "$LOG_FILE"; then
+                log "SUCCESS: Extracted $file to $extract_dir"
+                echo "  ✓ Successfully extracted to: $extract_dir"
+                return 0
             else
                 log "ERROR: Failed to extract $file"
                 echo "  ✗ Failed to extract $file"
-                read success error < "$TEMP_FILE"
-                echo "$success $((error + 1))" > "$TEMP_FILE"
+                rm -rf "$extract_dir"
+                return 1
             fi
             ;;
         *.zip)
-            if unzip -q "$file" -d "$EXTRACT_DIR" 2>> "$LOG_FILE"; then
-                log "SUCCESS: Extracted $file to $EXTRACT_DIR"
-                echo "  ✓ Successfully extracted to: $EXTRACT_DIR"
-                read success error < "$TEMP_FILE"
-                echo "$((success + 1)) $error" > "$TEMP_FILE"
+            if unzip -q "$file" -d "$extract_dir" 2>> "$LOG_FILE"; then
+                log "SUCCESS: Extracted $file to $extract_dir"
+                echo "  ✓ Successfully extracted to: $extract_dir"
+                return 0
             else
                 log "ERROR: Failed to extract $file"
                 echo "  ✗ Failed to extract $file"
-                read success error < "$TEMP_FILE"
-                echo "$success $((error + 1))" > "$TEMP_FILE"
+                rm -rf "$extract_dir"
+                return 1
             fi
             ;;
+        *)
+            echo "  ✗ Unsupported file format: $basename_file"
+            return 1
+            ;;
     esac
-done
+}
 
-# Read final counts
-read SUCCESS_COUNT ERROR_COUNT < "$TEMP_FILE"
-rm -f "$TEMP_FILE"
-
-echo ""
-echo "Extraction completed:"
-echo "  - Successfully extracted: $SUCCESS_COUNT files"
-echo "  - Failed to extract: $ERROR_COUNT files"
-
-if [ "$SUCCESS_COUNT" -gt 0 ]; then
+unzip_individual() {
+    local backup_dir="$1"
+    
+    if [ ! -d "$backup_dir" ]; then
+        echo "ERROR: Backup directory $backup_dir does not exist!"
+        return 1
+    fi
+    
+    cd "$backup_dir" || return 1
+    
+    local backup_files=($(find . -maxdepth 1 -name "*.tar.gz" -o -name "*.zip" -o -name "*.tar" -o -name "*.tar.bz2"))
+    
+    if [ ${#backup_files[@]} -eq 0 ]; then
+        echo "No backup files found in $backup_dir"
+        return 0
+    fi
+    
     echo ""
-    echo "Extracted files are located in: $EXTRACT_DIR"
-    echo "Directory structure:"
-    find "$EXTRACT_DIR" -maxdepth 1 -not -name "*.tar.gz" -not -name "*.zip" -not -name "*.tar" -not -name "*.tar.bz2" -not -path "$EXTRACT_DIR" | head -10 2>/dev/null || echo "  (No files extracted)"
-fi
+    echo "Available backup files:"
+    for i in "${!backup_files[@]}"; do
+        echo "$((i+1))) $(basename "${backup_files[i]}")"
+    done
+    
+    echo -n "Select file number [1-${#backup_files[@]}]: "
+    read -r selection
+    
+    if ! [[ "$selection" =~ ^[0-9]+$ ]] || [ "$selection" -lt 1 ] || [ "$selection" -gt ${#backup_files[@]} ]; then
+        echo "Invalid selection."
+        return 1
+    fi
+    
+    local selected_file="${backup_files[$((selection-1))]}"
+    extract_file "$selected_file" "$backup_dir"
+}
 
-log "Backup unzip process completed. Success: $SUCCESS_COUNT, Errors: $ERROR_COUNT"
+unzip_all() {
+    local backup_dir="$1"
+    
+    if [ ! -d "$backup_dir" ]; then
+        echo "ERROR: Backup directory $backup_dir does not exist!"
+        return 1
+    fi
+    
+    cd "$backup_dir" || return 1
+    
+    local backup_files=($(find . -maxdepth 1 -name "*.tar.gz" -o -name "*.zip" -o -name "*.tar" -o -name "*.tar.bz2"))
+    
+    if [ ${#backup_files[@]} -eq 0 ]; then
+        echo "No backup files found in $backup_dir"
+        return 0
+    fi
+    
+    echo "Found ${#backup_files[@]} backup file(s) to extract:"
+    for file in "${backup_files[@]}"; do
+        echo "  - $(basename "$file")"
+    done
+    
+    if ! confirm_action "Do you want to proceed with extracting all backup files?"; then
+        log "Operation cancelled by user"
+        echo "Operation cancelled."
+        return 0
+    fi
+    
+    local success_count=0
+    local error_count=0
+    
+    for file in "${backup_files[@]}"; do
+        if extract_file "$file" "$backup_dir"; then
+            ((success_count++))
+        else
+            ((error_count++))
+        fi
+    done
+    
+    echo ""
+    echo "Extraction completed:"
+    echo "  - Successfully extracted: $success_count files"
+    echo "  - Failed to extract: $error_count files"
+    
+    log "Batch unzip process completed. Success: $success_count, Errors: $error_count"
+}
+
+while true; do
+    show_menu
+    read -r choice
+    
+    case $choice in
+        1)
+            unzip_individual "$BACKUP_DIR"
+            ;;
+        2)
+            unzip_all "$BACKUP_DIR"
+            ;;
+        3)
+            delete_unzipped_folders "$BACKUP_DIR"
+            ;;
+        4)
+            echo "Goodbye!"
+            log "Script terminated by user"
+            exit 0
+            ;;
+        *)
+            echo "Invalid option. Please select 1-4."
+            ;;
+    esac
+    
+    echo ""
+    echo -n "Press Enter to continue..."
+    read -r
+done
