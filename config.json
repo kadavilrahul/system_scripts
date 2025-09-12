@@ -1,0 +1,4 @@
+{
+  "website_backups_path": "/website_backups",
+  "log_file": "/var/log/system-cleanup.log"
+}

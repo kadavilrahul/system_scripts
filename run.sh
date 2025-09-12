@@ -3,7 +3,27 @@
 # System Cleanup Script
 # Interactive menu system for system maintenance and cleanup operations
 
-LOG_FILE="/var/log/system-cleanup.log"
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+CONFIG_FILE="$SCRIPT_DIR/config.json"
+
+# Load configuration
+load_config() {
+    if [ -f "$CONFIG_FILE" ]; then
+        WEBSITE_BACKUPS_PATH=$(grep -o '"website_backups_path"[[:space:]]*:[[:space:]]*"[^"]*"' "$CONFIG_FILE" | sed 's/.*"website_backups_path"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
+        LOG_FILE_CONFIG=$(grep -o '"log_file"[[:space:]]*:[[:space:]]*"[^"]*"' "$CONFIG_FILE" | sed 's/.*"log_file"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
+        
+        # Set defaults if not found in config
+        WEBSITE_BACKUPS_PATH=${WEBSITE_BACKUPS_PATH:-"/website_backups"}
+        LOG_FILE=${LOG_FILE_CONFIG:-"/var/log/system-cleanup.log"}
+    else
+        echo "⚠️  Config file not found at $CONFIG_FILE, using defaults"
+        WEBSITE_BACKUPS_PATH="/website_backups"
+        LOG_FILE="/var/log/system-cleanup.log"
+    fi
+}
+
+# Load configuration at startup
+load_config
 DATE=$(date '+%Y-%m-%d %H:%M:%S')
 
 log() {
@@ -16,6 +36,15 @@ confirm_action() {
     case "$response" in
         [yY]|[yY][eE][sS]) return 0 ;;
         *) return 1 ;;
+    esac
+}
+
+confirm_action_default_yes() {
+    echo -n "$1 (Y/n): "
+    read -r response
+    case "$response" in
+        [nN]|[nN][oO]) return 1 ;;
+        *) return 0 ;;
     esac
 }
 
@@ -104,22 +133,28 @@ show_cleanup_summary() {
 
 show_menu() {
     clear
-    echo "                             MENU"
     echo "========================================================================================"
-    echo "1)  Unzip Website Backups      - Extract all backup files from /website_backups"
-    echo "2)  System Monitor             - Display disk usage, directories, logs and status"
-    echo "3)  Package Cache Cleanup      - Clean apt cache and remove unused packages"
-    echo "4)  Log Files Cleanup          - Clean and rotate system log files"
-    echo "5)  Apache Logs Cleanup        - Clean and truncate Apache log files"
-    echo "6)  MySQL Cleanup              - Clean MySQL binary logs and optimize"
-    echo "7)  Redis Cleanup              - Clean old Redis dump files"
-    echo "8)  User Cache Cleanup         - Clean user cache directories"
-    echo "9)  Temporary Files Cleanup    - Clean /tmp and /var/tmp directories"
-    echo "10) Snap Cache Cleanup         - Remove disabled snap packages"
-    echo "11) VS Code Server Cleanup     - Clean old VS Code server files"
+    echo "                                  BACKUP MENU"
+    echo "========================================================================================"
+    echo "1)  Select Backup Files         - Choose specific backup files to extract"
+    echo "2)  Extract All Backups         - Extract all backup files from $WEBSITE_BACKUPS_PATH"
+    echo "3)  Delete Extracted Folders    - Remove previously extracted backup folders"
+    echo "========================================================================================"
+    echo "                                  CLEANUP MENU"
+    echo "========================================================================================"
+    echo "4)  System Monitor              - Display disk usage, directories, logs and status"
+    echo "5)  Package Cache Cleanup       - Clean apt cache and remove unused packages"
+    echo "6)  Log Files Cleanup           - Clean and rotate system log files"
+    echo "7)  Apache Logs Cleanup         - Clean and truncate Apache log files"
+    echo "8)  MySQL Cleanup               - Clean MySQL binary logs and optimize"
+    echo "9)  Redis Cleanup               - Clean old Redis dump files"
+    echo "10) User Cache Cleanup          - Clean user cache directories"
+    echo "11) Temporary Files Cleanup     - Clean /tmp and /var/tmp directories"
+    echo "12) Snap Cache Cleanup          - Remove disabled snap packages"
+    echo "13) VS Code Server Cleanup      - Clean old VS Code server files"
     echo "0)  Exit"
     echo "========================================================================================"
-    echo -n "Please select an option (0-11): "
+    echo -n "Please select an option (0-13): "
 }
 
 
@@ -554,14 +589,36 @@ vscode_cleanup() {
     read -p "Press Enter to continue..."
 }
 
-unzip_backups() {
-    if ! confirm_action "This will run the website backup unzip script. Continue?"; then
+select_backup_files() {
+    if ! confirm_action_default_yes "This will allow you to select specific backup files to extract. Continue?"; then
         echo "Operation cancelled."
         return
     fi
     
-    echo "Running website backup unzip script..."
-    /system_cleanup/unzip_backups.sh
+    echo "Opening backup file selection..."
+    "$SCRIPT_DIR/unzip_backups.sh" --path "$WEBSITE_BACKUPS_PATH" --mode select
+    read -p "Press Enter to continue..."
+}
+
+extract_all_backups() {
+    if ! confirm_action_default_yes "This will extract all backup files from $WEBSITE_BACKUPS_PATH. Continue?"; then
+        echo "Operation cancelled."
+        return
+    fi
+    
+    echo "Extracting all backup files..."
+    "$SCRIPT_DIR/unzip_backups.sh" --path "$WEBSITE_BACKUPS_PATH" --mode all
+    read -p "Press Enter to continue..."
+}
+
+delete_extracted_folders() {
+    if ! confirm_action_default_yes "This will delete previously extracted backup folders. Continue?"; then
+        echo "Operation cancelled."
+        return
+    fi
+    
+    echo "Deleting extracted folders..."
+    "$SCRIPT_DIR/unzip_backups.sh" --path "$WEBSITE_BACKUPS_PATH" --mode delete
     read -p "Press Enter to continue..."
 }
 
@@ -616,36 +673,42 @@ while true; do
     
     case $choice in
         1)
-            unzip_backups
+            select_backup_files
             ;;
         2)
-            system_monitor
+            extract_all_backups
             ;;
         3)
-            package_cleanup
+            delete_extracted_folders
             ;;
         4)
-            logs_cleanup
+            system_monitor
             ;;
         5)
-            apache_cleanup
+            package_cleanup
             ;;
         6)
-            mysql_cleanup
+            logs_cleanup
             ;;
         7)
-            redis_cleanup
+            apache_cleanup
             ;;
         8)
-            user_cache_cleanup
+            mysql_cleanup
             ;;
         9)
-            temp_files_cleanup
+            redis_cleanup
             ;;
         10)
-            snap_cleanup
+            user_cache_cleanup
             ;;
         11)
+            temp_files_cleanup
+            ;;
+        12)
+            snap_cleanup
+            ;;
+        13)
             vscode_cleanup
             ;;
         0)
@@ -653,7 +716,7 @@ while true; do
             exit 0
             ;;
         *)
-            echo "Invalid option. Please select 0-11."
+            echo "Invalid option. Please select 0-13."
             read -p "Press Enter to continue..."
             ;;
     esac
