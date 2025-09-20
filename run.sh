@@ -152,9 +152,10 @@ show_menu() {
     echo "11) Temporary Files Cleanup     - Clean /tmp and /var/tmp directories"
     echo "12) Snap Cache Cleanup          - Remove disabled snap packages"
     echo "13) VS Code Server Cleanup      - Clean old VS Code server files"
+    echo "14) Fix Git Permissions         - Fix permissions for all Git repositories"
     echo "0)  Exit"
     echo "========================================================================================"
-    echo -n "Please select an option (0-13): "
+    echo -n "Please select an option (0-14): "
 }
 
 
@@ -589,6 +590,71 @@ vscode_cleanup() {
     read -p "Press Enter to continue..."
 }
 
+fix_git_permissions() {
+    echo "🔧 GIT PERMISSIONS FIX"
+    echo "========================================"
+    
+    # Check if fix_git_permissions.sh exists
+    local script_path="/root/system_scripts/fix_git_permissions.sh"
+    if [ ! -f "$script_path" ]; then
+        echo "❌ Git permissions fix script not found at $script_path"
+        read -p "Press Enter to continue..."
+        return
+    fi
+    
+    # Make script executable if needed
+    chmod +x "$script_path"
+    
+    # Ask for target directory
+    echo "🗂️  Git Repository Permission Fixer"
+    echo ""
+    echo "This will fix permissions for all Git repositories in the specified directory."
+    echo "Default: Current directory (.)"
+    echo ""
+    echo -n "Enter directory path (or press Enter for current directory): "
+    read -r target_dir
+    
+    # Use current directory if no input
+    if [ -z "$target_dir" ]; then
+        target_dir="."
+    fi
+    
+    # Validate directory exists
+    if [ ! -d "$target_dir" ]; then
+        echo "❌ Directory '$target_dir' does not exist."
+        read -p "Press Enter to continue..."
+        return
+    fi
+    
+    # Count git repositories first
+    local repo_count=$(find "$target_dir" -type d -name ".git" 2>/dev/null | wc -l)
+    echo ""
+    echo "📊 Found $repo_count Git repositories in '$target_dir'"
+    
+    if [ "$repo_count" -eq 0 ]; then
+        echo "❌ No Git repositories found in the specified directory."
+        read -p "Press Enter to continue..."
+        return
+    fi
+    
+    if ! confirm_action "This will fix permissions for $repo_count Git repositories. Continue?"; then
+        echo "Operation cancelled."
+        return
+    fi
+    
+    echo ""
+    echo "🔄 Running Git permissions fix..."
+    log "Running Git permissions fix on $target_dir ($repo_count repositories)"
+    
+    # Run the fix_git_permissions.sh script
+    "$script_path" "$target_dir"
+    
+    echo ""
+    echo "✅ Git permissions fix completed!"
+    
+    read -p "Press Enter to continue..."
+}
+
 select_backup_files() {
     if ! confirm_action_default_yes "This will allow you to select specific backup files to extract. Continue?"; then
         echo "Operation cancelled."
@@ -711,12 +777,15 @@ while true; do
         13)
             vscode_cleanup
             ;;
+        14)
+            fix_git_permissions
+            ;;
         0)
             echo "Exiting system cleanup menu."
             exit 0
             ;;
         *)
-            echo "Invalid option. Please select 0-13."
+            echo "Invalid option. Please select 0-14."
             read -p "Press Enter to continue..."
             ;;
     esac
