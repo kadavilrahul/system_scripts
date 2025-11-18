@@ -656,11 +656,6 @@ fix_git_permissions() {
 }
 
 select_backup_files() {
-    if ! confirm_action_default_yes "This will allow you to select specific backup files to extract. Continue?"; then
-        echo "Operation cancelled."
-        return
-    fi
-    
     echo "Opening backup file selection..."
     "$SCRIPT_DIR/unzip_backups.sh" --path "$WEBSITE_BACKUPS_PATH" --mode select
     read -p "Press Enter to continue..."

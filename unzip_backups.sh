@@ -11,11 +11,11 @@ log() {
 }
 
 confirm_action() {
-    echo -n "$1 (y/N): "
+    echo -n "$1 (Y/n): "
     read -r response
     case "$response" in
-        [yY]|[yY][eE][sS]) return 0 ;;
-        *) return 1 ;;
+        [nN]|[nN][oO]) return 1 ;;
+        *) return 0 ;;
     esac
 }
 
