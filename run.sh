@@ -140,22 +140,29 @@ show_menu() {
     echo "2)  Extract All Backups         - Extract all backup files from $WEBSITE_BACKUPS_PATH"
     echo "3)  Delete Extracted Folders    - Remove previously extracted backup folders"
     echo "========================================================================================"
+    echo "                                  TAR MANAGEMENT"
+    echo "========================================================================================"
+    echo "4)  TAR Manager                 - Search, extract specific files, and exclude folders"
+    echo "5)  Search TAR Contents         - List and search files in tar archives"
+    echo "6)  Extract Specific Files      - Extract selected files from tar archives"
+    echo "7)  Extract with Exclusions     - Extract tar excluding specific folders/patterns"
+    echo "========================================================================================"
     echo "                                  CLEANUP MENU"
     echo "========================================================================================"
-    echo "4)  System Monitor              - Display disk usage, directories, logs and status"
-    echo "5)  Package Cache Cleanup       - Clean apt cache and remove unused packages"
-    echo "6)  Log Files Cleanup           - Clean and rotate system log files"
-    echo "7)  Apache Logs Cleanup         - Clean and truncate Apache log files"
-    echo "8)  MySQL Cleanup               - Clean MySQL binary logs and optimize"
-    echo "9)  Redis Cleanup               - Clean old Redis dump files"
-    echo "10) User Cache Cleanup          - Clean user cache directories"
-    echo "11) Temporary Files Cleanup     - Clean /tmp and /var/tmp directories"
-    echo "12) Snap Cache Cleanup          - Remove disabled snap packages"
-    echo "13) VS Code Server Cleanup      - Clean old VS Code server files"
-    echo "14) Fix Git Permissions         - Fix permissions for all Git repositories"
+    echo "8)  System Monitor              - Display disk usage, directories, logs and status"
+    echo "9)  Package Cache Cleanup       - Clean apt cache and remove unused packages"
+    echo "10) Log Files Cleanup           - Clean and rotate system log files"
+    echo "11) Apache Logs Cleanup         - Clean and truncate Apache log files"
+    echo "12) MySQL Cleanup               - Clean MySQL binary logs and optimize"
+    echo "13) Redis Cleanup               - Clean old Redis dump files"
+    echo "14) User Cache Cleanup          - Clean user cache directories"
+    echo "15) Temporary Files Cleanup     - Clean /tmp and /var/tmp directories"
+    echo "16) Snap Cache Cleanup          - Remove disabled snap packages"
+    echo "17) VS Code Server Cleanup      - Clean old VS Code server files"
+    echo "18) Fix Git Permissions         - Fix permissions for all Git repositories"
     echo "0)  Exit"
     echo "========================================================================================"
-    echo -n "Please select an option (0-14): "
+    echo -n "Please select an option (0-18): "
 }
 
 
@@ -683,6 +690,31 @@ delete_extracted_folders() {
     read -p "Press Enter to continue..."
 }
 
+# TAR Management Functions
+tar_manager_menu() {
+    echo "Opening TAR Manager..."
+    "$SCRIPT_DIR/tar_manager.sh"
+    read -p "Press Enter to continue..."
+}
+
+tar_search_contents() {
+    echo "Opening TAR Content Search..."
+    "$SCRIPT_DIR/tar_manager.sh" --search
+    read -p "Press Enter to continue..."
+}
+
+tar_extract_specific() {
+    echo "Opening Specific File Extraction..."
+    "$SCRIPT_DIR/tar_manager.sh" --extract
+    read -p "Press Enter to continue..."
+}
+
+tar_extract_exclusions() {
+    echo "Opening Extraction with Exclusions..."
+    "$SCRIPT_DIR/tar_manager.sh" --exclude
+    read -p "Press Enter to continue..."
+}
+
 system_monitor() {
     echo "🖥️  SYSTEM MONITOR"
     echo "========================================"
@@ -743,36 +775,48 @@ while true; do
             delete_extracted_folders
             ;;
         4)
-            system_monitor
+            tar_manager_menu
             ;;
         5)
-            package_cleanup
+            tar_search_contents
             ;;
         6)
-            logs_cleanup
+            tar_extract_specific
             ;;
         7)
-            apache_cleanup
+            tar_extract_exclusions
             ;;
         8)
-            mysql_cleanup
+            system_monitor
             ;;
         9)
-            redis_cleanup
+            package_cleanup
             ;;
         10)
-            user_cache_cleanup
+            logs_cleanup
             ;;
         11)
-            temp_files_cleanup
+            apache_cleanup
             ;;
         12)
-            snap_cleanup
+            mysql_cleanup
             ;;
         13)
-            vscode_cleanup
+            redis_cleanup
             ;;
         14)
+            user_cache_cleanup
+            ;;
+        15)
+            temp_files_cleanup
+            ;;
+        16)
+            snap_cleanup
+            ;;
+        17)
+            vscode_cleanup
+            ;;
+        18)
             fix_git_permissions
             ;;
         0)
@@ -780,7 +824,7 @@ while true; do
             exit 0
             ;;
         *)
-            echo "Invalid option. Please select 0-14."
+            echo "Invalid option. Please select 0-18."
             read -p "Press Enter to continue..."
             ;;
     esac
